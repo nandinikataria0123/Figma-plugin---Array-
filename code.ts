@@ -175,7 +175,7 @@ function placeClone(
 
 // --- Figma Logic ---
 
-figma.showUI(__html__, { width: 260, height: 460 });
+figma.showUI(__html__, { width: 300, height: 524 });
 
 figma.ui.onmessage = async (msg) => {
   // ── Assign a node role (shape or path) ──────────────────────────────────
