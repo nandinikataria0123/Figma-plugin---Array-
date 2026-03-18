@@ -2,9 +2,9 @@
   "name": "testing-array",
   "version": "1.0.0",
   "description": "",
-  "main": "code.js",
+  "main": "dist/code.js",
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && powershell -Command Copy-Item src/ui.html dist/ui.html",
     "watch": "tsc --watch"
   },
   "keywords": [],
@@ -12,6 +12,7 @@
   "license": "ISC",
   "type": "commonjs",
   "devDependencies": {
-    "@figma/plugin-typings": "^1.123.0"
+    "@figma/plugin-typings": "^1.123.0",
+    "typescript": "^5.0.0"
   }
 }

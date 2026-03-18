@@ -3,12 +3,12 @@
     "target": "ES6",
     "lib": ["ES6"],
     "strict": true,
-    "outFile": "code.js",
+    "outFile": "dist/code.js",
     "types": [],
     "skipLibCheck": true
   },
-  "files": [
-    "code.ts",
+  "include": [
+    "src/code.ts",
     "./node_modules/@figma/plugin-typings/index.d.ts"
   ]
 }

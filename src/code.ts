@@ -1,29 +1,50 @@
-// --- Types & Interfaces ---
-
+/**
+ * Represents a 2D point with x and y coordinates.
+ */
 interface Point {
   x: number;
   y: number;
 }
 
+/**
+ * Represents an entry in the Arc Length Look-Up Table (LUT).
+ * Maps a curve parameter 't' to its corresponding accumulated arc length.
+ */
 interface ArcLUTEntry {
   t: number;
   arcLen: number;
 }
 
+/**
+ * Represents a segment of a vector path, which can be either a cubic Bezier curve or a straight line.
+ */
 interface BezierSegment {
+  /** Start point of the segment. */
   p0: Point;
+  /** First control point for cubic segments. */
   p1: Point;
+  /** Second control point for cubic segments. */
   p2: Point;
+  /** End point of the segment. */
   p3: Point;
+  /** The total physical length of the segment. */
   length: number;
+  /** The type of the segment: CUBIC for curves, LINE for straight paths. */
   type: "CUBIC" | "LINE";
-  lut: ArcLUTEntry[]; // arc-length lookup table for accurate parameterization
+  /** Arc-length lookup table for accurate parameterization. */
+  lut: ArcLUTEntry[];
 }
 
-// --- Math Utilities ---
-
+/**
+ * Mathematical utilities for evaluating and analyzing Bezier curves and lines.
+ */
 class BezierEngine {
-  // Evaluate position on bezier at parameter t ∈ [0, 1]
+  /**
+   * Evaluates the position on a segment at a given parameter t.
+   * @param t - The parameter value between 0 and 1.
+   * @param seg - The segment to evaluate.
+   * @returns The 2D coordinates at parameter t.
+   */
   static evaluate(t: number, seg: BezierSegment): Point {
     if (seg.type === "LINE") {
       return {
@@ -46,7 +67,12 @@ class BezierEngine {
     };
   }
 
-  // Evaluate tangent direction at parameter t
+  /**
+   * Computes the tangent vector (derivative) of a segment at parameter t.
+   * @param t - The parameter value between 0 and 1.
+   * @param seg - The segment to analyze.
+   * @returns The tangent vector at parameter t.
+   */
   static derivative(t: number, seg: BezierSegment): Point {
     if (seg.type === "LINE") {
       return { x: seg.p3.x - seg.p0.x, y: seg.p3.y - seg.p0.y };
@@ -64,8 +90,13 @@ class BezierEngine {
     };
   }
 
-  // Build an arc-length LUT for a segment — maps arc distance → curve parameter t
-  // This is necessary because arc-length does NOT map linearly to t on cubic beziers.
+  /**
+   * Builds an arc-length Look-Up Table (LUT) for a segment.
+   * Maps physical distance along the curve to the mathematical parameter t.
+   * @param seg - The segment to build the LUT for.
+   * @param steps - The number of subdivisions for the numerical integration.
+   * @returns An array of ArcLUTEntry mapping t to arc length.
+   */
   static buildArcLUT(seg: BezierSegment, steps = 200): ArcLUTEntry[] {
     if (seg.type === "LINE") {
       return [
@@ -86,7 +117,13 @@ class BezierEngine {
     return lut;
   }
 
-  // Given a LUT and a target arc-length, return the best t via binary search + linear interpolation
+  /**
+   * Finds the curve parameter t corresponding to a specific physical distance using the LUT.
+   * Uses binary search and linear interpolation for high performance and precision.
+   * @param lut - The arc-length lookup table.
+   * @param targetLen - The target physical distance along the segment.
+   * @returns The parameter t ∈ [0, 1].
+   */
   static tFromArcLength(lut: ArcLUTEntry[], targetLen: number): number {
     const last = lut[lut.length - 1];
     if (targetLen <= 0) return 0;
@@ -104,7 +141,16 @@ class BezierEngine {
     return lut[lo].t + alpha * (lut[hi].t - lut[lo].t);
   }
 
-  // Compute true arc-length of a cubic segment via adaptive numerical integration
+  /**
+   * Calculates the total physical length of a segment using numerical integration.
+   * @param p0 - Start point.
+   * @param p1 - First control point.
+   * @param p2 - Second control point.
+   * @param p3 - End point.
+   * @param type - Segment type.
+   * @param steps - Integration precision steps.
+   * @returns The total arc length.
+   */
   static calculateLength(
     p0: Point,
     p1: Point,
@@ -146,6 +192,11 @@ class BezierEngine {
  * Place a clone at a world position (cx, cy) with optional rotation.
  * Uses relativeTransform so that rotation is applied around the object's
  * geometric center — not its top-left corner.
+ * @param clone - The cloned SceneNode to place.
+ * @param cx - Target center x-coordinate.
+ * @param cy - Target center y-coordinate.
+ * @param angleDeg - Rotation angle in degrees.
+ * @param rotate - Whether to apply rotation.
  */
 function placeClone(
   clone: SceneNode,
@@ -177,9 +228,20 @@ function placeClone(
 
 figma.showUI(__html__, { width: 300, height: 524 });
 
+/**
+ * Tracks the current generated array group to allow for real-time updates.
+ */
+let currentArrayGroup: GroupNode | null = null;
+
+/**
+ * Main message handler for the plugin.
+ * Handles node selection assignment and array generation logic.
+ */
 figma.ui.onmessage = async (msg) => {
   // ── Assign a node role (shape or path) ──────────────────────────────────
   if (msg.type === "set-node") {
+    // Reset the current group when targets change to avoid confusion
+    currentArrayGroup = null;
     const selection = figma.currentPage.selection;
     if (selection.length !== 1) {
       figma.notify("Select exactly one object first.", { error: true });
@@ -312,16 +374,27 @@ figma.ui.onmessage = async (msg) => {
       clones.push(clone);
     }
 
+    if (currentArrayGroup && !currentArrayGroup.removed) {
+      currentArrayGroup.remove();
+    }
+
     if (clones.length > 0) {
       const group = figma.group(clones, figma.currentPage);
       group.name = `Array along ${pathNode.name}`;
+      currentArrayGroup = group;
       figma.currentPage.selection = [group];
-      figma.notify(`✓ Created ${clones.length} instances`);
+      
+      // Only notify when manually triggered (not real-time sliders)
+      if (!msg.isRealTime) {
+        figma.notify(`✓ Created ${clones.length} instances`);
+      }
     } else {
-      figma.notify(
-        "No instances were placed. Check count / gap vs. path length.",
-        { error: true },
-      );
+      if (!msg.isRealTime) {
+        figma.notify(
+          "No instances were placed. Check count / gap vs. path length.",
+          { error: true },
+        );
+      }
     }
 
     figma.ui.postMessage({ type: "done" });
