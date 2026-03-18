@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Array | Precision Path Distribution for Figma</title>
+    <meta name="description" content="Extending radial & linear repeat for Figma. Repeat objects along any custom path with precision.">
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- GSAP & MotionPath -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/MotionPathPlugin.min.js"></script>
+
+    <style>
+        :root {
+            --bg: #0A0A0A;
+            --bg-panel: #1A1A1A;
+            --accent-blue: #0D99FF;
+            --accent-hover: #0A7BCC;
+            --text-main: #FFFFFF;
+            --text-dim: #888888;
+            --border: #333333;
+            --glass: rgba(26, 26, 26, 0.85);
+            --bloom-color: rgba(13, 153, 255, 0.6);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text-main);
+            font-family: 'Inter', sans-serif;
+            overflow: hidden;
+            height: 100vh;
+            width: 100vw;
+            display: flex;
+        }
+
+        /* --- Hero Section (Left) --- */
+        .hero-section {
+            position: relative;
+            width: 40%;
+            height: 100%;
+            padding: 60px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            z-index: 20;
+            background: linear-gradient(90deg, var(--bg) 60%, transparent 100%);
+        }
+
+        .figma-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border);
+            padding: 6px 14px;
+            border-radius: 100px;
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            color: var(--text-dim);
+            margin-bottom: 24px;
+            width: fit-content;
+        }
+
+        .figma-badge img { width: 12px; }
+
+        .title {
+            font-size: 84px;
+            font-weight: 700;
+            letter-spacing: -0.04em;
+            line-height: 1;
+            margin-bottom: 24px;
+            background: linear-gradient(135deg, #FFF 0%, #666 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .tagline {
+            font-size: 20px;
+            font-weight: 400;
+            line-height: 1.5;
+            color: var(--text-dim);
+            max-width: 400px;
+            margin-bottom: 40px;
+        }
+
+        .tagline span {
+            color: var(--text-main);
+            font-weight: 500;
+        }
+
+        .cta-install {
+            background: var(--accent-blue);
+            color: #FFF;
+            padding: 14px 32px;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 15px;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: fit-content;
+            transition: background 0.2s, transform 0.2s;
+            box-shadow: 0 4px 20px rgba(13, 153, 255, 0.3);
+        }
+
+        .cta-install:hover {
+            background: var(--accent-hover);
+            transform: translateY(-2px);
+        }
+
+        /* --- Canvas Section (Right / Isometric) --- */
+        .canvas-section {
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 70%;
+            height: 100%;
+            overflow: hidden;
+            perspective: 2000px;
+            z-index: 10;
+        }
+
+        .glow-bg {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 800px;
+            height: 800px;
+            transform: translate(-50%, -50%);
+            background: radial-gradient(circle, rgba(13, 153, 255, 0.08) 0%, transparent 70%);
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        .isometric-plane {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 1000px;
+            height: 1000px;
+            transform: translate(-50%, -50%) rotateX(60deg) rotateZ(-45deg);
+            transform-style: preserve-3d;
+        }
+
+        svg#main-path {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            overflow: visible;
+        }
+
+        #bezier-path {
+            fill: none;
+            stroke: rgba(255, 255, 255, 0.1);
+            stroke-width: 2;
+            stroke-dasharray: 4 12;
+            stroke-linecap: round;
+        }
+
+        /* 3D Blooming Rectangles */
+        .node-layer {
+            position: absolute;
+            width: 40px;
+            height: 100px; /* Taller to look like a pillar/rectangle */
+            transform-style: preserve-3d;
+            /* Center origin for MotionPath */
+            margin-top: -50px;
+            margin-left: -20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* The glowing core of the rectangle */
+        .node-core {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(180deg, rgba(255,255,255,0.8) 0%, rgba(13,153,255,0.4) 100%);
+            border-radius: 4px;
+            box-shadow: 
+                0 0 20px var(--bloom-color),
+                0 0 40px var(--bloom-color) inset;
+            opacity: 0.8;
+            transform: translateZ(20px);
+            transition: all 0.5s ease;
+        }
+
+        /* The glass outer shell */
+        .node-glass {
+            position: absolute;
+            width: 120%;
+            height: 110%;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 6px;
+            backdrop-filter: blur(8px);
+            transform: translateZ(40px);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+        }
+
+        /* Blooming animation class applied via JS */
+        .node-layer.bloom .node-core {
+            box-shadow: 
+                0 0 40px rgba(13, 153, 255, 0.9),
+                0 0 60px rgba(255, 255, 255, 0.5) inset;
+            background: linear-gradient(180deg, rgba(255,255,255,1) 0%, rgba(13,153,255,0.8) 100%);
+        }
+
+        /* --- Plugin Control Widget --- */
+        .plugin-widget {
+            position: absolute;
+            bottom: 40px;
+            right: 40px;
+            width: 320px;
+            background: var(--glass);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 24px;
+            z-index: 30;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+            font-size: 13px;
+        }
+
+        .widget-header {
+            font-weight: 600;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        /* Module Tabs */
+        .tabs {
+            display: flex;
+            background: rgba(0,0,0,0.4);
+            border-radius: 8px;
+            padding: 4px;
+            margin-bottom: 24px;
+            border: 1px solid var(--border);
+        }
+
+        .tab-btn {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: var(--text-dim);
+            padding: 8px 0;
+            font-size: 12px;
+            font-weight: 600;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .tab-btn.active {
+            background: var(--bg-panel);
+            color: var(--text-main);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        }
+
+        .module-section {
+            display: none;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .module-section.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(5px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .control-group {
+            margin-bottom: 20px;
+        }
+
+        .control-label {
+            display: flex;
+            justify-content: space-between;
+            color: var(--text-dim);
+            margin-bottom: 12px;
+        }
+
+        .control-label .val {
+            color: var(--accent-blue);
+            font-weight: 600;
+        }
+
+        .calculated-stat {
+            font-size: 11px;
+            color: var(--text-dim);
+            background: rgba(255,255,255,0.05);
+            padding: 8px;
+            border-radius: 6px;
+            margin-top: 12px;
+            display: flex;
+            justify-content: space-between;
+            border: 1px dashed var(--border);
+        }
+
+        input[type="range"] {
+            width: 100%;
+            -webkit-appearance: none;
+            background: transparent;
+            cursor: pointer;
+        }
+
+        input[type="range"]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            background: #444;
+            border-radius: 2px;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
+            background: #FFF;
+            margin-top: -6px;
+            border: 2px solid var(--bg-panel);
+            box-shadow: 0 2px 5px rgba(0,0,0,0.5);
+            transition: transform 0.1s;
+        }
+
+        input[type="range"]::-webkit-slider-thumb:active {
+            transform: scale(1.2);
+        }
+
+        .toggle-group {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding-top: 16px;
+            border-top: 1px solid var(--border);
+        }
+
+        .toggle-label {
+            color: var(--text-dim);
+        }
+
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 36px;
+            height: 20px;
+        }
+
+        .switch input { opacity: 0; width: 0; height: 0; }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: #444;
+            transition: .2s;
+            border-radius: 20px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 14px;
+            width: 14px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: .3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            border-radius: 50%;
+        }
+
+        input:checked + .slider { background-color: var(--accent-blue); }
+        input:checked + .slider:before { transform: translateX(16px); }
+    </style>
+</head>
+<body>
+
+    <main class="hero-section">
+        <div class="figma-badge">
+            <svg width="12" height="18" viewBox="0 0 12 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M6 9C7.65685 9 9 7.65685 9 6C9 4.34315 7.65685 3 6 3C4.34315 3 3 4.34315 3 6C3 7.65685 4.34315 9 6 9Z" fill="#F24E1E"/>
+                <path d="M3 9C3 10.6569 4.34315 12 6 12C7.65685 12 9 10.6569 9 9H3Z" fill="#A259FF"/>
+                <path d="M3 15C3 16.6569 4.34315 18 6 18C7.65685 18 9 16.6569 9 15H3Z" fill="#1ABCFE"/>
+                <path d="M3 6C3 4.34315 4.34315 3 6 3V9C4.34315 9 3 7.65685 3 6Z" fill="#0ACF83"/>
+                <path d="M9 3C9 4.34315 7.65685 6 6 6V0C7.65685 0 9 1.34315 9 3Z" fill="#FF7262"/>
+            </svg>
+            Figma Plugin
+        </div>
+
+        <h1 class="title">Array</h1>
+        
+        <p class="tagline">
+            Distribute objects along any vector path with perfect mathematical precision. <br><br>
+            <span>Extending radial & linear repeat.</span>
+        </p>
+
+        <a href="#" class="cta-install">Install Plugin</a>
+    </main>
+
+    <div class="canvas-section">
+        <div class="glow-bg"></div>
+        <div class="isometric-plane" id="iso-plane">
+            <svg id="main-path" viewBox="0 0 1000 1000">
+                <!-- Using a visually interesting path to show off spacing -->
+                <path id="bezier-path" d="M100,800 C100,400 300,200 500,500 C700,800 900,600 900,200" />
+            </svg>
+            <!-- 3D Nodes injected via JS -->
+        </div>
+    </div>
+
+    <!-- Plugin Control Widget -->
+    <div class="plugin-widget">
+        <div class="widget-header">
+            Properties
+        </div>
+
+        <!-- Modules Tabs -->
+        <div class="tabs">
+            <button class="tab-btn active" data-target="module-even">Even Count</button>
+            <button class="tab-btn" data-target="module-fixed">Fixed Gap</button>
+        </div>
+        
+        <!-- Module 1: Even Count (Spacing is calculated) -->
+        <div id="module-even" class="module-section active">
+            <div class="control-group">
+                <div class="control-label">
+                    <label for="countSlider">Total Shapes</label>
+                    <span class="val" id="countVal">12</span>
+                </div>
+                <input type="range" id="countSlider" min="2" max="40" value="12">
+            </div>
+            <div class="calculated-stat">
+                <span>Calculated Gap</span>
+                <span id="even-calc-gap" style="color: #fff;">-- px</span>
+            </div>
+        </div>
+
+        <!-- Module 2: Fixed Gap (Count is calculated) -->
+        <div id="module-fixed" class="module-section">
+            <div class="control-group">
+                <div class="control-label">
+                    <label for="gapSlider">Gap Distance</label>
+                    <span class="val" id="gapVal">80px</span>
+                </div>
+                <input type="range" id="gapSlider" min="30" max="300" value="80">
+            </div>
+            <div class="calculated-stat">
+                <span>Shapes Fitting Path</span>
+                <span id="fixed-calc-count" style="color: #fff;">--</span>
+            </div>
+        </div>
+
+        <!-- Shared Settings -->
+        <div class="toggle-group" style="margin-top: 24px;">
+            <span class="toggle-label">Align to Tangent</span>
+            <label class="switch">
+                <input type="checkbox" id="rotateToggle" checked>
+                <span class="slider"></span>
+            </label>
+        </div>
+    </div>
+
+    <script>
+        gsap.registerPlugin(MotionPathPlugin);
+
+        let nodes = [];
+        const isoPlane = document.getElementById('iso-plane');
+        const svgPath = document.getElementById('bezier-path');
+        const pathLength = svgPath.getTotalLength();
+        
+        // UI Elements
+        const tabBtns = document.querySelectorAll('.tab-btn');
+        const moduleSections = document.querySelectorAll('.module-section');
+        
+        const countSlider = document.getElementById('countSlider');
+        const countVal = document.getElementById('countVal');
+        const evenCalcGap = document.getElementById('even-calc-gap');
+
+        const gapSlider = document.getElementById('gapSlider');
+        const gapVal = document.getElementById('gapVal');
+        const fixedCalcCount = document.getElementById('fixed-calc-count');
+
+        const rotateToggle = document.getElementById('rotateToggle');
+
+        // Current State
+        let currentMode = 'even'; // 'even' or 'fixed'
+
+        // Initialize
+        function initArray() {
+            setupTabs();
+            renderNodes();
+            
+            // Continuous subtle levitation of the plane
+            gsap.to(isoPlane, {
+                y: "-=10",
+                rotationZ: "-=2",
+                duration: 6,
+                repeat: -1,
+                yoyo: true,
+                ease: "sine.inOut"
+            });
+        }
+
+        function setupTabs() {
+            tabBtns.forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    // Update Active Tab
+                    tabBtns.forEach(b => b.classList.remove('active'));
+                    e.target.classList.add('active');
+
+                    // Update Active Module View
+                    const targetId = e.target.getAttribute('data-target');
+                    moduleSections.forEach(sec => sec.classList.remove('active'));
+                    document.getElementById(targetId).classList.add('active');
+
+                    // Update State and Re-render
+                    currentMode = targetId === 'module-even' ? 'even' : 'fixed';
+                    renderNodes();
+                });
+            });
+        }
+
+        // Logic for calculating positions based on active module
+        function calculatePositions() {
+            const positions = [];
+
+            if (currentMode === 'even') {
+                const count = parseInt(countSlider.value);
+                countVal.innerText = count;
+                
+                // Math for Even Distribution
+                for (let i = 0; i < count; i++) {
+                    positions.push(i / (count - 1));
+                }
+                // Update UI Readout
+                const calculatedGap = (pathLength / (count - 1)).toFixed(1);
+                evenCalcGap.innerText = `${calculatedGap} px`;
+
+            } else if (currentMode === 'fixed') {
+                const gap = parseInt(gapSlider.value);
+                gapVal.innerText = `${gap}px`;
+                
+                // Math for Fixed Gap Distribution
+                // How many full segments fit? +1 for the starting node.
+                const count = Math.floor(pathLength / gap) + 1;
+                
+                for (let i = 0; i < count; i++) {
+                    // Progress is distance / totalLength
+                    const progress = (i * gap) / pathLength;
+                    if (progress <= 1) { // Safety bound
+                        positions.push(progress);
+                    }
+                }
+                // Update UI Readout
+                fixedCalcCount.innerText = count;
+            }
+
+            return positions;
+        }
+
+        // Main render loop
+        function renderNodes() {
+            const positions = calculatePositions();
+            const autoRotate = rotateToggle.checked;
+
+            // Clear existing nodes from DOM
+            nodes.forEach(node => node.remove());
+            nodes = [];
+
+            // Build new 3D Blooming Rectangles
+            positions.forEach((progress, index) => {
+                // Outer Container
+                const el = document.createElement('div');
+                el.className = 'node-layer';
+                
+                // 3D Visual Layers
+                const core = document.createElement('div');
+                core.className = 'node-core';
+                
+                const glass = document.createElement('div');
+                glass.className = 'node-glass';
+
+                el.appendChild(core);
+                el.appendChild(glass);
+                isoPlane.appendChild(el);
+                nodes.push(el);
+
+                // Entrance Animation (Blooming Effect)
+                // Start tiny and transparent
+                gsap.set(el, { scale: 0, opacity: 0 });
+
+                // Map to path and trigger bloom
+                gsap.to(el, {
+                    motionPath: {
+                        path: "#bezier-path",
+                        align: "#bezier-path",
+                        alignOrigin: [0.5, 0.5],
+                        autoRotate: autoRotate,
+                        start: progress,
+                        end: progress
+                    },
+                    scale: 1,
+                    opacity: 1,
+                    duration: 0.8,
+                    ease: "elastic.out(1, 0.7)",
+                    delay: index * 0.04, // Sequential spawn
+                    onStart: () => {
+                        // Add class to trigger CSS intense glow/bloom
+                        el.classList.add('bloom');
+                    },
+                    onComplete: () => {
+                        // Settle down to normal state after bloom
+                        setTimeout(() => el.classList.remove('bloom'), 200);
+                        
+                        // Add continuous subtle floating to each rectangle
+                        gsap.to(core, {
+                            translateZ: "30px", // pulse forward
+                            duration: 2 + Math.random(),
+                            repeat: -1,
+                            yoyo: true,
+                            ease: "sine.inOut"
+                        });
+                    }
+                });
+            });
+        }
+
+        // Fast update when just rotating or sliding without full rebuild
+        // (If counts change drastically, renderNodes triggers instead via logic)
+        function updateLayout() {
+            const oldLength = nodes.length;
+            const positions = calculatePositions();
+            
+            // If the number of nodes required changes, do a full tear-down and rebuild
+            if (positions.length !== oldLength) {
+                renderNodes();
+                return;
+            }
+
+            // Otherwise, smoothly animate existing nodes to new spacing
+            const autoRotate = rotateToggle.checked;
+            nodes.forEach((el, i) => {
+                gsap.to(el, {
+                    motionPath: {
+                        path: "#bezier-path",
+                        align: "#bezier-path",
+                        alignOrigin: [0.5, 0.5],
+                        autoRotate: autoRotate,
+                        start: positions[i],
+                        end: positions[i]
+                    },
+                    duration: 0.4,
+                    ease: "power2.out"
+                });
+            });
+        }
+
+        // Bind Listeners
+        countSlider.addEventListener('input', updateLayout);
+        gapSlider.addEventListener('input', updateLayout);
+        rotateToggle.addEventListener('change', updateLayout);
+
+        // Run
+        window.onload = initArray;
+    </script>
+</body>
+</html>
