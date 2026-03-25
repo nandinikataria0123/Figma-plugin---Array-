@@ -248,7 +248,7 @@ figma.ui.onmessage = async (msg) => {
       return;
     }
 
-    const node = selection[0];
+    let node = selection[0] as any;
 
     if (msg.target === "path" && !("vectorNetwork" in node)) {
       figma.notify(
@@ -256,6 +256,15 @@ figma.ui.onmessage = async (msg) => {
         { error: true },
       );
       return;
+    }
+
+    // Convert to component if it's the shape target and not already a component or instance
+    if (msg.target === "shape") {
+      if (node.type !== "COMPONENT" && node.type !== "INSTANCE") {
+        const component = figma.createComponentFromNode(node);
+        component.name = `Array Source: ${node.name}`;
+        node = component;
+      }
     }
 
     figma.ui.postMessage({
@@ -369,7 +378,10 @@ figma.ui.onmessage = async (msg) => {
       const worldY = pathNode.y + pos.y;
       const angleDeg = Math.atan2(deriv.y, deriv.x) * (180 / Math.PI);
 
-      const clone = shapeNode.clone();
+      const clone = (shapeNode.type === "COMPONENT") 
+        ? (shapeNode as ComponentNode).createInstance() 
+        : shapeNode.clone();
+        
       placeClone(clone, worldX, worldY, angleDeg, msg.rotateToPath);
       clones.push(clone);
     }
