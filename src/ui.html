@@ -49,6 +49,50 @@
         padding-bottom: 10px;
       }
 
+      .sec-label-row {
+        display: flex; align-items: center; gap: 6px;
+        padding-bottom: 10px;
+      }
+      .sec-label-row .sec-label { padding-bottom: 0; }
+
+      .info-icon {
+        position: relative;
+        display: flex; align-items: center; justify-content: center;
+        width: 14px; height: 14px;
+        border-radius: 50%;
+        color: var(--t3);
+        cursor: help;
+        flex-shrink: 0;
+      }
+      .info-icon:hover { color: var(--t2); }
+      .info-icon svg { display: block; }
+
+      .info-icon .tooltip {
+        position: absolute;
+        top: calc(100% + 6px); left: 0;
+        width: 190px;
+        background: var(--surf-hi);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 8px 10px;
+        font-size: 11px; font-weight: 400; line-height: 1.6;
+        color: var(--t1);
+        text-align: left;
+        opacity: 0; visibility: hidden;
+        transform: translateY(-2px);
+        transition: opacity .12s, transform .12s;
+        pointer-events: none;
+        z-index: 20;
+        box-shadow: 0 4px 14px rgba(0,0,0,.4);
+      }
+      .info-icon .tooltip strong {
+        color: var(--t1); font-weight: 600;
+      }
+      .info-icon:hover .tooltip {
+        opacity: 1; visibility: visible;
+        transform: translateY(0);
+      }
+
       .node-card {
         background: var(--surf);
         border: 1px solid var(--border);
@@ -156,6 +200,43 @@
         padding: 0 10px 0 2px; flex-shrink: 0;
       }
 
+      .slider-wrap {
+        display: flex; align-items: center; gap: 10px;
+        height: 32px;
+      }
+      .slider-wrap input[type="range"] {
+        flex: 1; -webkit-appearance: none; appearance: none;
+        height: 4px; border-radius: 2px;
+        background: var(--surf-hi);
+        outline: none; cursor: pointer;
+      }
+      .slider-wrap input[type="range"]::-webkit-slider-thumb {
+        -webkit-appearance: none; appearance: none;
+        width: 14px; height: 14px; border-radius: 50%;
+        background: var(--blue); cursor: pointer;
+        border: 2px solid var(--bg);
+        box-shadow: 0 0 0 1px var(--blue);
+        transition: transform .1s;
+      }
+      .slider-wrap input[type="range"]::-webkit-slider-thumb:hover,
+      .slider-wrap input[type="range"]::-webkit-slider-thumb:active {
+        transform: scale(1.15);
+      }
+      .slider-wrap input[type="range"]::-moz-range-thumb {
+        width: 14px; height: 14px; border-radius: 50%;
+        background: var(--blue); cursor: pointer;
+        border: 2px solid var(--bg);
+        box-shadow: 0 0 0 1px var(--blue);
+      }
+      .slider-wrap input[type="range"]::-moz-range-track {
+        background: transparent;
+      }
+      .slider-value {
+        width: 42px; flex-shrink: 0; text-align: right;
+        font-size: 12px; color: var(--t1);
+        font-variant-numeric: tabular-nums;
+      }
+
       .toggle-row {
         display: flex; align-items: center; gap: 10px;
         background: var(--surf);
@@ -206,7 +287,20 @@
   <body>
 
     <div class="content">
-      <div class="sec-label">Nodes</div>
+      <div class="sec-label-row">
+        <span class="sec-label">Nodes</span>
+        <span class="info-icon">
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+            <circle cx="6" cy="6" r="5" stroke="currentColor" stroke-width="1.2"/>
+            <path d="M6 5.5V8.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+            <circle cx="6" cy="3.6" r="0.6" fill="currentColor"/>
+          </svg>
+          <span class="tooltip">
+            <strong>Shape</strong> — the element that gets duplicated along the path.<br/>
+            <strong>Path</strong> — the vector path the shapes are distributed along.
+          </span>
+        </span>
+      </div>
 
       <div class="node-card" id="shapeSlot">
         <div class="node-info">
@@ -250,7 +344,21 @@
 
       <div class="divider"></div>
 
-      <div class="sec-label">Distribution</div>
+      <div class="sec-label-row">
+        <span class="sec-label">Distribution</span>
+        <span class="info-icon">
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+            <circle cx="6" cy="6" r="5" stroke="currentColor" stroke-width="1.2"/>
+            <path d="M6 5.5V8.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+            <circle cx="6" cy="3.6" r="0.6" fill="currentColor"/>
+          </svg>
+          <span class="tooltip">
+            <strong>Even Count</strong> — spaces a fixed number of items evenly along the path.<br/>
+            <strong>Fixed Gap</strong> — spaces items using a constant distance apart.<br/>
+            <strong>Scale</strong> — grows or shrinks each item progressively along the path.
+          </span>
+        </span>
+      </div>
 
       <div class="seg seg-full">
         <input type="radio" name="mode" id="modeEven" value="even" checked/>
@@ -280,11 +388,11 @@
       </div>
 
       <div class="prop-row" id="scaleSettings">
-        <span class="prop-lbl">Scale Multiplier</span>
+        <span class="prop-lbl">Scale</span>
         <div class="prop-ctrl">
-          <div class="num-wrap">
-            <input type="number" id="scaleInput" value="1.0" step="0.05"/>
-            <span class="num-unit">x</span>
+          <div class="slider-wrap">
+            <input type="range" id="scaleSlider" min="0" max="2" step="0.025" value="1"/>
+            <span class="slider-value" id="scaleValue">1.00x</span>
           </div>
         </div>
       </div>
@@ -330,7 +438,8 @@
 
       const countInput    = document.getElementById("countInput");
       const gapInput      = document.getElementById("gapInput");
-      const scaleInput    = document.getElementById("scaleInput");
+      const scaleSlider   = document.getElementById("scaleSlider");
+      const scaleValueEl  = document.getElementById("scaleValue");
 
       let debounceTimer;
       function requestGenerate(isRealTime = true) {
@@ -373,10 +482,20 @@
         requestGenerate();
       };
 
-      scaleInput.oninput = (e) => {
-        state.scaleMultiplier = parseFloat(e.target.value) || 1.0;
+      function updateScaleUI(v) {
+        scaleValueEl.textContent = v.toFixed(2) + "x";
+        const pct = (v / 2) * 100;
+        scaleSlider.style.background =
+          `linear-gradient(to right, var(--blue) ${pct}%, var(--surf-hi) ${pct}%)`;
+      }
+
+      scaleSlider.oninput = (e) => {
+        state.scaleMultiplier = parseFloat(e.target.value);
+        updateScaleUI(state.scaleMultiplier);
         requestGenerate();
       };
+
+      updateScaleUI(state.scaleMultiplier);
 
       rotateLabel.onclick = () => {
         state.rotateToPath = !state.rotateToPath;
